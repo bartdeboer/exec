@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"strconv"
 
 	"github.com/iancoleman/strcase"
 )
@@ -22,57 +23,44 @@ func NewRunCommand(command string, arg ...string) *Cmd {
 	return &Cmd{cmd: runCmd}
 }
 
-func MakeArgs(args ...interface{}) []string {
+func BuildArgs(args ...interface{}) []string {
 	ret := []string{}
 	for _, arg := range args {
-		v := reflect.ValueOf(arg)
-		// s := v.Elem()
-		// typeOfT := v.Type()
-
+		rv := reflect.ValueOf(arg)
 		rt := reflect.TypeOf(arg)
-		fmt.Print(rt.Kind())
-		fmt.Print("\n")
-		fmt.Print(v.Kind())
-		fmt.Print("\n")
-		// fmt.Print(v.Elem())
-		// fmt.Print("\n")
-		switch v.Kind() {
+		switch rv.Kind() {
 		case reflect.Slice, reflect.Array:
-			fmt.Print(rt.Elem())
-			fmt.Print("\n")
-			fmt.Print(rt.Elem().Kind())
-			fmt.Print("\n")
 			if rt.Elem().Kind() == reflect.String {
 				ret = append(ret, arg.([]string)...)
 			}
+			if rt.Elem().Kind() == reflect.Int {
+				ret = append(ret, SliceToString(arg)...)
+			}
 		case reflect.String:
 			ret = append(ret, arg.(string))
+		case reflect.Int:
+			ret = append(ret, strconv.FormatInt(rv.Int(), 10))
 		case reflect.Struct:
-			fmt.Print(arg)
-			fmt.Print("\n")
-			ret = append(ret, GetArgsFromStruct(arg)...)
+			ret = append(ret, BuildArgsFromStruct(arg)...)
 		default:
-			// fmt.Println(k, "is something else entirely")
+			ret = append(ret, fmt.Sprintf("%v", arg))
 		}
 	}
 	return ret
 }
 
-func AppendStructArgs(args []string, input interface{}) []string {
-	return append(args, GetArgsFromStruct(input)...)
-}
-
-func GetArgsFromStruct(input interface{}) []string {
+func BuildArgsFromStruct(input interface{}) []string {
 	agrs := []string{}
 	// https://blog.golang.org/laws-of-reflection
-	v := reflect.ValueOf(input)
-	// s := v.Elem()
-	typeOfT := v.Type()
-
-	for i := 0; i < v.NumField(); i++ {
+	rv := reflect.ValueOf(input)
+	typeOfT := rv.Type()
+	if k := rv.Kind(); k != reflect.Struct {
+		panic("Value is not a struct")
+	}
+	for i := 0; i < rv.NumField(); i++ {
 		name := typeOfT.Field(i).Name
-		f := v.Field(i)
-		strVal := fmt.Sprintf("%v", f.Interface())
+		strVal := ValueToString(rv.Field(i))
+		// strVal := fmt.Sprintf("%v", f.Interface())
 		// strVal := f.Interface().(string)
 		flag := "--" + strcase.ToKebab(name)
 		if strVal == "" {
@@ -84,10 +72,27 @@ func GetArgsFromStruct(input interface{}) []string {
 	return agrs
 }
 
-func GetArgsFromSlice(input []interface{}) []string {
-	ret := make([]string, len(input))
-	for i, v := range input {
-		ret[i] = v.(string)
+func ValueToString(val reflect.Value) string {
+	var ret string
+	switch val.Kind() {
+		case reflect.String:
+			ret = val.String()
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			ret = strconv.FormatInt(val.Int(), 10)
+	}
+	return ret
+}
+
+func SliceToString(input interface{}) []string {
+	var ret []string
+	v := reflect.ValueOf(input)
+	switch v.Kind() {
+	case reflect.Slice, reflect.Array:
+		ret = make([]string, v.Len())
+		for i := 0; i < v.Len(); i++ {
+			ret[i] = ValueToString(v.Index(i))
+			// ret[i] = fmt.Sprintf("%v", v.Index(i).Interface())
+		}
 	}
 	return ret
 }
