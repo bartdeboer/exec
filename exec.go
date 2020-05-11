@@ -1,12 +1,15 @@
 package exec
 
 import (
+	"bufio"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/iancoleman/strcase"
 )
@@ -15,12 +18,45 @@ type Cmd struct {
 	cmd *exec.Cmd
 }
 
-func NewRunCommand(command string, arg ...string) *Cmd {
-	runCmd := exec.Command(command, arg...)
-	runCmd.Stdout = os.Stdout
-	runCmd.Stderr = os.Stderr
-	runCmd.Stdin = os.Stdin
-	return &Cmd{cmd: runCmd}
+func (cmd *Cmd) List() ([]string, error) {
+	list := []string{}
+	stdout, err := cmd.cmd.StdoutPipe()
+	if err != nil {
+		return list, err
+	}
+	stderr, err := cmd.cmd.StderrPipe()
+	if err != nil {
+		return list, err
+	}
+	scanner := bufio.NewScanner(stdout)
+	if err := cmd.cmd.Start(); err != nil {
+		return list, err
+	}
+	for scanner.Scan() {
+		list = append(list, strings.Trim(scanner.Text(), " "))
+	}
+	errStr, _ := ioutil.ReadAll(stderr)
+	if err := cmd.cmd.Wait(); err != nil {
+		fmt.Printf("%s\n", strings.Trim(string(errStr), "\n"))
+		// Get the exit code
+		// if exitError, ok := err.(*exec.ExitError); ok {
+		// 	fmt.Printf("ExitCode: %v\n", exitError.ExitCode())
+		// }
+		return list, err
+	}
+	return list, scanner.Err()
+}
+
+func NewCommand(command string, arg ...string) *Cmd {
+	return &Cmd{cmd: exec.Command(command, arg...)}
+}
+
+func NewIOCommand(command string, arg ...string) *Cmd {
+	c := NewCommand(command, arg...)
+	c.cmd.Stdin = os.Stdin
+	c.cmd.Stdout = os.Stdout
+	c.cmd.Stderr = os.Stderr
+	return c
 }
 
 func BuildArgs(args ...interface{}) []string {
@@ -32,8 +68,7 @@ func BuildArgs(args ...interface{}) []string {
 		case reflect.Slice, reflect.Array:
 			if rt.Elem().Kind() == reflect.String {
 				ret = append(ret, arg.([]string)...)
-			}
-			if rt.Elem().Kind() == reflect.Int {
+			} else {
 				ret = append(ret, SliceToString(arg)...)
 			}
 		case reflect.String:
@@ -59,15 +94,21 @@ func BuildArgsFromStruct(input interface{}) []string {
 	}
 	for i := 0; i < rv.NumField(); i++ {
 		name := typeOfT.Field(i).Name
+		value := rv.Field(i)
+		opt := "--" + strcase.ToKebab(name)
+		if value.Kind() == reflect.Bool {
+			if value.Bool() == true {
+				agrs = append(agrs, opt)
+			}
+			continue
+		}
 		strVal := ValueToString(rv.Field(i))
 		// strVal := fmt.Sprintf("%v", f.Interface())
 		// strVal := f.Interface().(string)
-		flag := "--" + strcase.ToKebab(name)
-		if strVal == "" {
-			agrs = append(agrs, flag)
+		if strVal == "" || strVal == "0" {
 			continue
 		}
-		agrs = append(agrs, flag, strVal)
+		agrs = append(agrs, opt, strVal)
 	}
 	return agrs
 }
@@ -75,10 +116,10 @@ func BuildArgsFromStruct(input interface{}) []string {
 func ValueToString(val reflect.Value) string {
 	var ret string
 	switch val.Kind() {
-		case reflect.String:
-			ret = val.String()
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			ret = strconv.FormatInt(val.Int(), 10)
+	case reflect.String:
+		ret = val.String()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		ret = strconv.FormatInt(val.Int(), 10)
 	}
 	return ret
 }
