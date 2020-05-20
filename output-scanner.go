@@ -6,7 +6,10 @@ package exec
 
 import (
 	"bufio"
+	"errors"
+	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -92,4 +95,32 @@ func (o *OutputScanner) HasLine(line string) (bool, error) {
 		return false, err
 	}
 	return false, nil
+}
+
+func (o *OutputScanner) Prompt() (string, error) {
+	lines, err := o.Lines()
+	if err != nil {
+		return "", err
+	}
+	if len(lines) == 0 {
+		return "", errors.New("Command returned no results")
+	}
+	for i, l := 0, len(lines); i < l; i++ {
+		fmt.Printf("%3d) %s\n", i+1, lines[i])
+	}
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Printf("Enter choice: ")
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	choice, err := strconv.ParseInt(strings.Trim(input, " \r\n"), 10, 0)
+	if err != nil {
+		return "", err
+	}
+	choice--
+	if choice >= 0 && int(choice) < len(lines) {
+		return lines[int(choice)], nil
+	}
+	return "", errors.New("Invalid choice")
 }
