@@ -103,24 +103,24 @@ func (o *OutputScanner) Prompt() (string, error) {
 		return "", err
 	}
 	if len(lines) == 0 {
-		return "", errors.New("Command returned no results")
+		return "", errors.New("Command returned empty list")
 	}
 	for i, l := 0, len(lines); i < l; i++ {
 		fmt.Printf("%3d) %s\n", i+1, lines[i])
 	}
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Printf("Enter choice: ")
+	fmt.Printf("Enter option: ")
 	input, err := reader.ReadString('\n')
 	if err != nil {
 		return "", err
 	}
-	choice, err := strconv.ParseInt(strings.Trim(input, " \r\n"), 10, 0)
+	option, err := strconv.ParseInt(strings.Trim(input, " \r\n"), 10, 0)
 	if err != nil {
 		return "", err
 	}
-	choice--
-	if choice >= 0 && int(choice) < len(lines) {
-		return lines[int(choice)], nil
+	option--
+	if option >= 0 && int(option) < len(lines) {
+		return lines[int(option)], nil
 	}
-	return "", errors.New("Invalid choice")
+	return "", errors.New("Invalid option")
 }
