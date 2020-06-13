@@ -9,7 +9,7 @@ type testStruct struct {
 	FirstParam   string
 	SecondParam  string
 	ThirdParam   bool
-	FourthPatam  bool
+	FourthParam  bool
 	FifthParam   int
 	SixthParam   string
 	ZeventhParam int
@@ -21,7 +21,7 @@ func TestBuildArgs(t *testing.T) {
 		FirstParam:  "val1",
 		SecondParam: "val2",
 		ThirdParam:  true,
-		FourthPatam: false,
+		FourthParam: false,
 		FifthParam:  8,
 	}
 

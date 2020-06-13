@@ -98,15 +98,19 @@ func (o *OutputScanner) HasLine(line string) (bool, error) {
 }
 
 func (o *OutputScanner) Prompt() (string, error) {
-	lines, err := o.Lines()
+	options, err := o.Lines()
 	if err != nil {
 		return "", err
 	}
-	if len(lines) == 0 {
-		return "", errors.New("Command returned empty list")
+	return Select(options)
+}
+
+func Select(options []string) (string, error) {
+	if len(options) == 0 {
+		return "", errors.New("List of options is empty")
 	}
-	for i, l := 0, len(lines); i < l; i++ {
-		fmt.Printf("%3d) %s\n", i+1, lines[i])
+	for i, l := 0, len(options); i < l; i++ {
+		fmt.Printf("%3d) %s\n", i+1, options[i])
 	}
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Printf("Enter option: ")
@@ -119,8 +123,8 @@ func (o *OutputScanner) Prompt() (string, error) {
 		return "", err
 	}
 	option--
-	if option >= 0 && int(option) < len(lines) {
-		return lines[int(option)], nil
+	if option >= 0 && int(option) < len(options) {
+		return options[int(option)], nil
 	}
 	return "", errors.New("Invalid option")
 }
