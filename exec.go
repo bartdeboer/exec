@@ -5,9 +5,15 @@
 package exec
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 )
+
+var ShowCommands bool
+
+var Env map[string]string
 
 type Cmd struct {
 	cmd *exec.Cmd
@@ -26,17 +32,29 @@ func NewIOCommand(command string, arg ...string) *Cmd {
 }
 
 func (c *Cmd) Start() error {
-	if err := c.cmd.Start(); err != nil {
-		return err
+	if len(Env) > 0 {
+		env := os.Environ()
+		for k, v := range Env {
+			env = append(env, fmt.Sprintf("%s=%s", strings.ToUpper(k), v))
+		}
+		c.cmd.Env = env
 	}
-	return nil
+	if ShowCommands {
+		fmt.Printf("%+v\n", c.cmd)
+		// fmt.Printf("%+v\n", c.cmd.Env)
+	}
+	return c.cmd.Start()
+}
+
+func (c *Cmd) SetEnv(arg ...string) {
+	c.cmd.Env = arg
 }
 
 func (c *Cmd) Run() error {
-	if err := c.cmd.Run(); err != nil {
+	if err := c.Start(); err != nil {
 		return err
 	}
-	return nil
+	return c.cmd.Wait()
 }
 
 func (c *Cmd) Wait() (int, error) {
